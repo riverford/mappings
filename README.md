@@ -33,7 +33,7 @@ to some set of output keys given a map, using the dependency graph of the rules 
 (mappings/add ::math
   "Rules can be documented, I am a docstring, to be associated with the rule below.
    
-   The most basic rule is to define symmetry, here we say b == a, and therefore a == b."
+   The most basic rule is to define equivalence, here we say b == a, and therefore a == b."
   (:b :a)
  
   "This rule uses functions to specify that :a+1 == (inc :a) and that :a = (dec :a+1)."
