@@ -14,6 +14,7 @@
 
 (defn- remove-rule
   [ruleset id]
+  (println "WARN, replacing rule")
   (let [{:keys [::rules]} ruleset
         {:keys [::rule/provides]} (get rules id)
         ruleset (update ruleset ::rules dissoc id)
@@ -24,7 +25,7 @@
                (if (empty? new-set)
                  (update ruleset ::provision dissoc provided-key)
                  (assoc-in ruleset [::provision provided-key] new-set))))
-        ruleset (reduce rf ruleset ::rule/provides)]
+        ruleset (reduce rf ruleset provides)]
     ruleset))
 
 (defn- add-rule*
