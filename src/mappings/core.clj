@@ -1,163 +1,8 @@
 (ns mappings.core
-  (:require [clojure.set :as set]))
-
-(defn- calculate-id
-  [provides required-keys optional-keys]
-  [::rule provides required-keys optional-keys])
-
-(defn- coerce-requires-form
-  [requires]
-  (cond
-    (keyword? requires) [requires]
-    (vector? requires) requires
-    :else [requires]))
-
-(defn- coerce-provides
-  [provides]
-  (cond
-    (keyword? provides) #{provides}
-    (vector? provides) (set provides)
-    :else #{provides}))
-
-(defonce id-counter (atom -1))
-
-(defn transform
-  ([outspec inspec f]
-   (let [require-form (coerce-requires-form inspec)
-         required-keys (set require-form)
-         optional-keys #{}
-         provides (coerce-provides outspec)]
-     {::id (calculate-id provides required-keys optional-keys)
-      ::nid (swap! id-counter inc)
-      ::provides provides
-      ::input inspec
-      ::output outspec
-      ::required-keys required-keys
-      ::optional-keys optional-keys
-      ::check (case (count required-keys)
-                0 (constantly true)
-                1 (let [required-key (first required-keys)]
-                    #(contains? % required-key))
-                (fn [in] (every? #(contains? in %) required-keys)))
-      ::f
-      ;; ordinal case
-      (let [get-args (apply juxt (map (fn [k] #(get % k)) require-form))]
-        (case (count provides)
-          0 (throw (IllegalArgumentException. "Rule must provide at least one key"))
-          1 (let [provided-key (first provides)]
-              (fn apply-transform [in]
-                (let [args (get-args in)
-                      v (apply f args)]
-                  (if (some? v)
-                    (assoc! in provided-key v)
-                    in))))))}))
-  ([provides requires f & args] (transform provides requires #(apply f % args))))
-
-(defn- coerce-rules
-  [x]
-  (cond
-    (nil? x) x
-    (map? x) (cond
-               (::id x) [x]
-               (::rules x) (vals (::rules x))
-               :else (throw (Exception. "Cannot create rule(s) from map")))
-    (coll? x) (mapcat coerce-rules x)
-    :else x))
-
-(defn- remove-rule
-  [ruleset id]
-  (let [{:keys [::rules]} ruleset
-        {:keys [::provides]} (get rules id)
-        ruleset (update ruleset ::rules dissoc id)
-
-        rf (fn [ruleset provided-key]
-             (let [set (get-in ruleset [::provision provided-key])
-                   new-set (disj set id)]
-               (if (empty? new-set)
-                 (update ruleset ::provision dissoc provided-key)
-                 (assoc-in ruleset [::provision provided-key] new-set))))
-        ruleset (reduce rf ruleset provides)]
-    ruleset))
-
-(defn- add-rule*
-  [ruleset rule]
-  (let [{:keys [::rules]} ruleset
-        {:keys [::provides
-                ::id]} rule]
-    (if (contains? rules id)
-      (add-rule* (remove-rule ruleset id) rule)
-      (let [ruleset (assoc-in ruleset [::rules id] rule)
-            rf (fn [ruleset provided-key]
-                 (update-in ruleset [::provision provided-key] (fnil conj #{}) id))
-            ruleset (reduce rf ruleset provides)]
-        ruleset))))
-
-(defn add
-  ([ruleset rule]
-   (if (::id rule)
-     (add-rule* ruleset rule)
-     (reduce add-rule* ruleset (coerce-rules rule))))
-  ([ruleset rule & rules]
-   (reduce add (add ruleset rule) rules)))
-
-(defn rules
-  ([] {})
-  ([& mappings] (reduce add (rules) mappings)))
-
-(defn- compile-selection
-  [ruleset keyseq seen]
-  (if (empty? keyseq)
-    identity
-    (let [{:keys [::provision
-                  ::rules]
-           :or {rules {}
-                provision {}}} ruleset
-
-          keyset (set keyseq)
-
-          all-deps (set (for [needed-key keyset
-                              rule-id (get provision needed-key)
-                              :let [rule (get rules rule-id)]
-                              required-key (::required-keys rule)]
-                          required-key))
-
-          rules (into {} (for [needed-key keyset
-                               :let [rule-ids (get provision needed-key)
-                                     rules (into [] (comp (distinct) (map rules)) rule-ids)]]
-                           [needed-key rules]))
-
-          all-deps (set/difference all-deps seen)
-          seen (set/union seen all-deps)
-          dep-selection (compile-selection ruleset all-deps seen)]
-      (if (empty? keyset)
-        identity
-        (fn run-selection [m]
-          (reduce
-            (fn [m needed-key]
-              (if-some [ev (get m needed-key)]
-                (assoc! m needed-key ev)
-                (if-some [valid-rules (get rules needed-key)]
-                  (if (= 1 (count valid-rules))
-                    (let [rule (nth valid-rules 0)
-                          check (::check rule)
-                          f (::f rule)]
-                      (if (check m)
-                        (f m)
-                        m))
-                    (reduce
-                      (fn [m rule]
-                        (let [check (::check rule)
-                              f (::f rule)]
-                          (if (check m)
-                            (f m)
-                            m)))
-                      m
-                      valid-rules))
-                  m)))
-            (dep-selection m)
-            keyset))))))
-
-;; -- rules
+  (:require [mappings.impl.rule :as rule]
+            [mappings.impl.global :as global]
+            [mappings.impl.compile :as compile]
+            [mappings.impl.ruleset :as ruleset]))
 
 (defmacro mapping
   ([outspec inspec]
@@ -175,12 +20,13 @@
            fn-form (:fn opts)
            rfn-form (:rfn opts)
 
-           equiv? (or (and (keyword? outspec)
-                           (keyword? inspec))
-                      (and (= 'identity fn-form)
-                           (= 'identity rfn-form))
-                      (and (nil? fn-form)
-                           (nil? rfn-form)))
+           equiv? (and (and (not (coll? outspec))
+                            (not (coll? inspec)))
+                       (or
+                         (and (= 'identity fn-form)
+                              (= 'identity rfn-form))
+                         (and (nil? fn-form)
+                              (nil? rfn-form))))
 
            fn-form (or fn-form 'identity)
 
@@ -189,15 +35,15 @@
 
            inversable? (some? rfn-form)
 
-           defaults-map `{::equiv? ~equiv?
-                          ::ns (quote ~ns)
-                          ::fn-form (quote ~fn-form)
-                          ::rfn-form (quote ~rfn-form)
-                          ::doc ~doc}
+           defaults-map `{:equiv? ~equiv?
+                          :ns (quote ~ns)
+                          :fn-form (quote ~fn-form)
+                          :rfn-form (quote ~rfn-form)
+                          :doc ~doc}
            inverse-defaults-map (merge
                                   defaults-map
-                                  `{::fn-form (quote ~rfn-form)
-                                    ::rfn-form (quote ~fn-form)})]
+                                  `{:fn-form (quote ~rfn-form)
+                                    :rfn-form (quote ~fn-form)})]
 
        (if inversable?
          `(let [output# ~outspec
@@ -205,14 +51,14 @@
                 defaults-map# ~defaults-map
                 inverse-defaults-map# ~inverse-defaults-map]
             [(merge
-               (transform output# input# ~fn-form)
+               (rule/rule output# input# ~fn-form)
                defaults-map#)
              (merge
-               (transform input# output# ~rfn-form)
+               (rule/rule input# output# ~rfn-form)
                inverse-defaults-map#)])
 
          `(merge
-            (transform ~outspec ~inspec ~fn-form)
+            (rule/rule ~outspec ~inspec ~fn-form)
             ~defaults-map))))))
 
 (defmacro mappings
@@ -238,32 +84,28 @@
                       `(mapping ~@x :doc ~doc)))
               (rest (rest forms)))))))))
 
-(defonce ^:private global-rules
-  (atom (rules)))
-
-(defn add-global-rule
-  [rule]
-  (swap! global-rules add rule)
-  nil)
-
 (defmacro defmappings
   [& forms]
-  `(add-global-rule (mappings ~@forms)))
+  `(global/add-rule (mappings ~@forms)))
 
 (defn selection
-  ([keyseq] (selection @global-rules keyseq))
+  ([keyseq] (selection (global/get-ruleset) keyseq))
   ([ruleset keyseq]
-   (let [f (compile-selection ruleset keyseq #{})]
-     (fn [m] (select-keys (persistent! (f (transient m))) keyseq)))))
+   (let [f (compile/selection ruleset keyseq #{})]
+     (fn [m] (persistent! (f (transient m)))))))
 
 (defn select
-  ([m keyseq] (select m @global-rules keyseq))
+  ([m keyseq] (select m (global/get-ruleset) keyseq))
   ([m ruleset keyseq]
    ((selection ruleset keyseq) m)))
 
+(defn ruleset
+  [& rules]
+  (ruleset/ruleset))
+
 (comment
 
-  (rules
+  (ruleset
 
     ;; identity mapping same as
     ;; (mapping :a :b :fn identity, :rfn identity)
@@ -316,3 +158,14 @@
 
       "e is f"
       (:e :f))))
+
+(comment
+  (let [rules
+        (ruleset/ruleset
+          (mappings (:b :a :fn inc :rfn dec)
+                    (:c [:a :b] +)))
+
+        f (selection
+            rules
+            [:a :c])]
+    (f {:b 42})))
