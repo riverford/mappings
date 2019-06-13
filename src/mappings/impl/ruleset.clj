@@ -14,9 +14,10 @@
 
 (defn- remove-rule
   [ruleset id]
-  (println "WARN, replacing rule")
   (let [{:keys [::rules]} ruleset
-        {:keys [::rule/provides]} (get rules id)
+        {:keys [::rule/provides]
+         :as rule} (get rules id)
+        _ (println "Replacing rule" (rule/ruleform rule))
         ruleset (update ruleset ::rules dissoc id)
 
         rf (fn [ruleset provided-key]
@@ -52,3 +53,7 @@
 (defn ruleset
   ([] {})
   ([& mappings] (reduce add (ruleset) mappings)))
+
+(defn get-providing
+  [ruleset k]
+  (map (::rules ruleset {}) (get (::provision ruleset) k)))

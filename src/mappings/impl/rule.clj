@@ -98,3 +98,16 @@
   [transient-map rule]
   (let [f (::f rule)]
     (f transient-map)))
+
+(defn ruleform
+  [rule]
+  (let [{:keys [::inspec
+                ::outspec
+                :equiv?
+                :fn-form
+                :rfn-form]} rule]
+
+    (cond
+      equiv? (list outspec inspec)
+      rfn-form (list outspec inspec :fn fn-form :rfn rfn-form)
+      :else (list outspec inspec fn-form))))

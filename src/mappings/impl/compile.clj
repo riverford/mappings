@@ -5,6 +5,9 @@
 
 (set! *warn-on-reflection* true)
 
+(def ^:private default-rule?
+  (comp zero? count ::rule/required-keys))
+
 (defn selection
   [ruleset keyseq seen]
   (if (empty? keyseq)
@@ -24,7 +27,12 @@
 
           rules (into {} (for [needed-key keyset
                                :let [rule-ids (get provision needed-key)
-                                     rules (into [] (comp (distinct) (map rules)) rule-ids)]]
+                                     rules (->> rule-ids
+                                                (map rules)
+                                                (sort-by default-rule?)
+                                                (reverse)
+                                                vec)]
+                               :when (seq rules)]
                            [needed-key rules]))
 
           all-deps (set/difference all-deps seen)

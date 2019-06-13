@@ -1,14 +1,6 @@
-# mappings
-
-**Currently highly experimental with no tests!**
-
-Mappings lets you declare relationships between keys in maps and leverage those relationships to:
-
-- Automate key conversion and calculation
-- Derive docstrings, assertions, and specs
-- Automatic wiring of dependent calculations
-
-```clojure
+(ns arithmetic
+  (:require [clojure.test :refer :all]
+            [mappings.core :as mappings]))
 
 ;; This adds rules to the ::math ruleset.
 ;; if you omit the keyword ::math the rules would be added to the default
@@ -32,6 +24,9 @@ Mappings lets you declare relationships between keys in maps and leverage those 
   args as map"
   (:d2 #{:e :f} (fn [m] (reduce + (vals m)))))
 
+;; You can then perform calculations using select, and compute functions that try to give you
+;; some output given a spec with selection.
+
 ;; here we select the desired output :a+1 using the ::math ruleset.
 (mappings/select {:a 1} ::math :a+1)
 ;; =>
@@ -54,15 +49,3 @@ Mappings lets you declare relationships between keys in maps and leverage those 
 ;; =>
 {:e 1, :f 2, :d 3}
 
-```
-
-## Usage
-
-FIXME
-
-
-## License
-
-Copyright © 2019 Riverford Organic Farmers Ltd
-
-Distributed under the [3-clause license ("New BSD License" or "Modified BSD License").](http://github.com/riverford/mappings/blob/master/LICENSE)
