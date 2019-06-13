@@ -31,7 +31,7 @@ to some set of output keys given a map, using the dependency graph of the rules 
 ;; keys.
 
 (mappings/add ::math
-  "Relationships between keys are established with rules.
+  "Rules can be documented, I am a docstring, to be associated with the rule below.
    
    The most basic rule is to define symmetry, here we say b == a, and therefore a == b."
   (:b :a)
