@@ -2,15 +2,25 @@
 
 **Currently highly experimental with no tests!**
 
-Allows you to provide definitions of the calculation used to provide keys in your program.
-If spec lets you specify values a key can have, then mappings lets you specify how you arrive at those values.
+Mappings lets you specify relationships between keys in maps via `rules`.
 
-e.g key :c is (+ :a :b).
+An example rule in plain english:
 
-What can you do with mappings?
+`:key :c is (+ :a :b).`
 
-- Wires up functions of map -> map for you based on rulesets
-- Derive docstrings, assertions, and specs
+Or 
+
+`:foo_bar is :my.ns/foo-bar`
+
+### Ok so why?
+
+Using many of these relationships between keys, you can have mappings figure out if possible how to get 
+to some set of output keys given a map, using the dependency graph of the rules to drive computation.
+
+### What else can it do?
+
+- Automate repetitive key wiring and contains? style checks in functions taking maps.
+- Derive docstrings, assertions, and certain specs
 - Code generation able to follow symmetries and transitive relationships for you so you don't have to
 
 ```clojure
@@ -22,15 +32,20 @@ What can you do with mappings?
 
 (mappings/add ::math
   "Relationships between keys are established with rules.
-
-  This rule specifies that :a+1 == (inc :a) and that :a = (dec :a+1)."
+   
+   The most basic rule is to define symmetry, here we say b == a, and therefore a == b."
+  (:b :a)
+ 
+  "This rule uses functions to specify that :a+1 == (inc :a) and that :a = (dec :a+1)."
   (:a+1 :a :fn inc :rfn dec)
 
-  "The most basic rule is to define symmetry, here we say b == a, and therefore a == b."
-  (:b :a)
+  "Any function can be used"
+  (:c :b :fn (fn [b] (+ b 2)) :rfn (partial - 2))
 
-  "We can have one way relationships, that require multiple keys, in this case you
-  can omit the :fn keyword."
+  "One way relationships are possible, that perhaps require multiple keys"
+  (:d [:e :f] :fn +)
+  
+  "With one way relationships, you can omit the :fn if you want"
   (:d [:e :f] +)
 
   "We can use functions that take unordered dependencies these receive their
