@@ -6,7 +6,7 @@ Mappings lets you specify relationships between keys in maps via `rules`.
 
 An example rule in plain english:
 
-`:key :c is (+ :a :b).`
+`:c is (+ :a :b).`
 
 Or 
 
