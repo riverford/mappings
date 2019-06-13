@@ -2,11 +2,16 @@
 
 **Currently highly experimental with no tests!**
 
-Mappings lets you declare relationships between keys in maps and leverage those relationships to:
+Allows you to provide definitions of the calculation used to provide keys in your program.
+If spec lets you specify values a key can have, then mappings lets you specify how you arrive at those values.
 
-- Automate key conversion and calculation
+e.g key :c is (+ :a :b).
+
+What can you do with mappings?
+
+- Wires up functions of map -> map for you based on rulesets
 - Derive docstrings, assertions, and specs
-- Automatic wiring of dependent calculations
+- Code generation able to follow symmetries and transitive relationships for you so you don't have to
 
 ```clojure
 
@@ -21,7 +26,7 @@ Mappings lets you declare relationships between keys in maps and leverage those 
   This rule specifies that :a+1 == (inc :a) and that :a = (dec :a+1)."
   (:a+1 :a :fn inc :rfn dec)
 
-  "The most basic rule is equivalence, here we say b == a, and therefore a == b."
+  "The most basic rule is to define symmetry, here we say b == a, and therefore a == b."
   (:b :a)
 
   "We can have one way relationships, that require multiple keys, in this case you
@@ -48,7 +53,7 @@ Mappings lets you declare relationships between keys in maps and leverage those 
 ;; =>
 2
 
-;; If I want to add keys to my input, you can use a set rather than a vector
+;; If we want to add keys to the input, we can use a set rather than a vector
 ;; in the output spec position
 (mappings/select {:e 1 :f 2} ::math #{:d})
 ;; =>
@@ -56,10 +61,17 @@ Mappings lets you declare relationships between keys in maps and leverage those 
 
 ```
 
-## Usage
+## Todo 
 
-FIXME
+Mappings is still in the experimental stage, I do not recommend using this in production. 
 
+Much more work needs to be done before this is ready!
+
+- Compile time optimisations (e.g fully inlined selection code)
+- Documentation 
+- Tests
+- Spec integration
+- Uninstallability via code generation of equivalent functions
 
 ## License
 
