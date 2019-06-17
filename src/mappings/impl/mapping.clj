@@ -1,6 +1,6 @@
 (ns mappings.impl.mapping
   (:require [mappings.impl.rule :as rule])
-  (:import (clojure.lang Compiler$LocalBinding Compiler$LocalBindingExpr)))
+  (:import (clojure.lang Compiler$LocalBinding)))
 
 (def ^:dynamic *ruleset-name* nil)
 
@@ -30,12 +30,14 @@
            equiv? (and (and (not (coll? outspec))
                             (not (coll? inspec)))
                        (or
+                         (and (= `identity fn-form)
+                              (= `identity rfn-form))
                          (and (= 'identity fn-form)
                               (= 'identity rfn-form))
                          (and (nil? fn-form)
                               (nil? rfn-form))))
 
-           fn-form (or fn-form 'identity)
+           fn-form (or fn-form `identity)
 
            fn-type (type fn-form)
            rfn-type (type rfn-form)

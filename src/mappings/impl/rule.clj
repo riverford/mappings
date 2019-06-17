@@ -1,8 +1,8 @@
 (ns mappings.impl.rule)
 
 (defn- calculate-id
-  [provides required-keys optional-keys]
-  [::rule provides required-keys optional-keys])
+  [provides required-keys]
+  [::rule provides required-keys])
 
 (defn- inspec-requirements
   [inspec]
@@ -85,7 +85,7 @@
         check-fn (check-fn required-keys)
         eval-fn (eval-fn inspec f)
         run-fn (run-fn outspec eval-fn)]
-    {::id (calculate-id provides required-keys optional-keys)
+    {::id (calculate-id provides required-keys)
      ::nid (swap! id-counter inc)
      ::provides provides
      ::inspec inspec

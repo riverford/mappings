@@ -4,9 +4,9 @@
 
 Mappings lets you specify relationships between keys in maps via `rules`.
 
-An example rule in plain english:
+An example rule in some kind of english 
 
-`:c is (+ :a :b).`
+`:c is (+ :a :b)`
 
 Or 
 
@@ -20,7 +20,7 @@ to some set of output keys given a map, using the dependency graph of the rules 
 ### What else can it do?
 
 - Automate repetitive key wiring and contains? style checks in functions taking maps.
-- Derive docstrings, assertions, and certain specs
+- Derive docstrings, assertions, and certain specs (WIP)
 - Code generation able to follow symmetries and transitive relationships for you so you don't have to
 
 ```clojure

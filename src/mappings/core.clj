@@ -2,9 +2,21 @@
   (:require [mappings.impl.mapping :as mapping]
             [mappings.impl.global :as global]
             [mappings.impl.compile :as compile]
-            [mappings.impl.ruleset :as ruleset]))
+            [mappings.impl.ruleset :as ruleset]
+            [mappings.impl.rule :as rule]))
 
 (defn selection
+  "Compiles a selection that provides an output matching `outspec`.
+
+  Examples:
+
+  select-keys style selection from named ruleset
+
+    (selection ::math [:c])
+
+  Single value selection from global ruleset
+
+    (selection :c)"
   ([outspec] (selection (global/get-rules :default) outspec))
   ([ruleset outspec]
    (let [f (compile/selection
@@ -26,11 +38,47 @@
    `((selection ~ruleset ~outspec) ~m)))
 
 (defmacro add
-  [ruleset? & forms]
+  "Adds the rules to the named ruleset, if the ruleset is not specified, the rules
+  will be added to the global ruleset.
+
+  Examples:
+
+  Add to global ruleset:
+
+   (add (:a :b) (:c [:a :b] +))
+
+  Add to named ruleset:
+
+   (add ::math (:a :b) (:c [:a :b] +))"
+  [ruleset? & rules]
   (if (keyword? ruleset?)
     `(binding [mapping/*ruleset-name* ~ruleset?]
-       (global/add-rule ~ruleset? (mapping/mappings ~@forms)))
-    `(mappings.core/add :default ~@forms)))
+       (global/add-rule ~ruleset? (mapping/mappings ~@rules)))
+    `(mappings.core/add :default ~@rules)))
+
+(defmacro defruleset
+  "Defines named ruleset, if a ruleset already exists, it is replaced entirely.
+
+  See add for rule syntax."
+  [ruleset & rules]
+  `(binding [mapping/*ruleset-name* ~ruleset]
+     (global/replace-rules ~ruleset (mapping/mappings ~@rules))))
+
+(defn paths
+  [ruleset outspec]
+  (let [ruleset (if (keyword? ruleset)
+                  (global/get-rules ruleset)
+                  ruleset)]
+    ((fn ! [outspec seen]
+       (for [k outspec
+             :let [ruleids (-> ruleset ::ruleset/provision (get k))]]
+         {:key k
+          :via
+          (vec
+            (for [ruleid ruleids
+                  :let [rule (get (::ruleset/rules ruleset) ruleid)]]
+              (rule/ruleform rule)))}))
+      outspec #{})))
 
 (comment
   (let [rules

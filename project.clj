@@ -2,5 +2,6 @@
   :description "Declare relationships between keys and derive computation"
   :url "https://github.com/riverford/mappings/"
   :license "https://github.com/riverford/mappings/blob/master/LICENSE"
-  :dependencies [[org.clojure/clojure "1.10.0"]]
+  :dependencies [[org.clojure/clojure "1.10.0"]
+                 [ubergraph "0.3.0"]]
   :repl-options {:init-ns mappings.core})
