@@ -2,26 +2,32 @@
 
 **Currently highly experimental with no tests!**
 
-Mappings lets you specify relationships between keys in maps via `rules`.
+`mappings` lets you specify relationships between keys in maps via `rules`.
 
-An example rule in some kind of english 
+Here are two rules in pseudo code 
 
-`:c is (+ :a :b)`
+- `:c is :a + :b`
+- `:foo_bar is :my.ns/foo-bar`
 
-Or 
+In `mappings`:
 
-`:foo_bar is :my.ns/foo-bar`
+```clojure 
+(mappings/add 
+   (:c [:a :b] +)
+   (:foo_bar :my.ns/foo-bar))
+```
 
 ### Ok so why?
 
 Using many of these relationships between keys, you can have mappings figure out if possible how to get 
 to some set of output keys given a map, using the dependency graph of the rules to drive computation.
 
-### What else can it do?
+### What can `mappings` do?
 
+- `rename-keys` on steroids, bidirectional, transformations can be applied, transitive renames are possible. 
 - Automate repetitive key wiring and contains? style checks in functions taking maps.
 - Derive docstrings, assertions, and certain specs (WIP)
-- Code generation able to follow symmetries and transitive relationships for you so you don't have to
+- Ask for a full definition of a key, including how it is calculated.
 
 ```clojure
 

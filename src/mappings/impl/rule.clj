@@ -47,7 +47,7 @@
 (defn- positional-run-fn
   [inspec f]
   (case (count inspec)
-    0 f
+    0 (fn [m] (f))
     1 (let [[a] inspec]
         (fn [m] (f (get m a))))
     2 (let [[a b] inspec]

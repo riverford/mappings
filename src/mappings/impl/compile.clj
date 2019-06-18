@@ -39,15 +39,16 @@
           run-key (fn [m needed-key]
                     (if-some [ev (m needed-key)]
                       (assoc! m needed-key ev)
-                      (if-some [valid-rules (rules needed-key)]
-                        (if (= 1 (count valid-rules))
-                          (let [rule (nth valid-rules 0)]
-                            (rule/execute! m rule))
-                          (reduce
-                            rule/execute!
-                            m
-                            valid-rules))
-                        m)))]
+                      (let [valid-rules (rules needed-key)]
+                        (if (some? valid-rules)
+                          (if (= 1 (count valid-rules))
+                            (let [rule (nth valid-rules 0)]
+                              (rule/execute! m rule))
+                            (reduce
+                              rule/execute!
+                              m
+                              valid-rules))
+                          m))))]
       (if (empty? keyset)
         identity
         (fn run-selection [m]

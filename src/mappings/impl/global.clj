@@ -10,22 +10,24 @@
   [k]
   (.get rulesets k))
 
+(defn update-ruleset
+  [k f & args]
+  (let [rules (.get rulesets k)]
+    (if rules
+      (.put rulesets k (apply f rules args))
+      (.put rulesets k (apply f (ruleset/ruleset) args)))
+    nil))
+
 (defn add-rule
   [k rule]
-  (let [rules (.get rulesets k)]
-    (if rules
-      (.put rulesets k (ruleset/add rules rule))
-      (.put rulesets k (ruleset/add (ruleset/ruleset) rule))))
+  (update-ruleset k ruleset/add rule)
   nil)
 
-(defn remove-rule
-  [k id]
-  (let [rules (.get rulesets k)]
-    (if rules
-      (.put rulesets k (ruleset/remove-rule rules id))))
-  nil)
-
-(defn replace-rules
-  [k & rules]
-  (.put rulesets k (apply ruleset/ruleset rules))
-  nil)
+(defn delete-rule
+  [k rid]
+  (update-ruleset
+    k
+    (fn [ruleset]
+      (if-some [id (ruleset/identify ruleset rid)]
+        (ruleset/remove-rule ruleset id)
+        ruleset))))
