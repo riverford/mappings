@@ -2,84 +2,154 @@
 
 **Currently highly experimental with no tests!**
 
-`mappings` lets you specify relationships between keys in maps via `rules`.
+`mappings` lets you specify relationships between keys in maps via `rules`,
+with these rules functions of maps returning maps can derived by specifying of desired outputs.
 
 Here are two rules in pseudo code 
 
-- `:c is :a + :b`
-- `:foo_bar is :my.ns/foo-bar`
-
-In `mappings`:
-
-```clojure 
-(mappings/add 
-   (:c [:a :b] +)
-   (:foo_bar :my.ns/foo-bar))
-```
-
-### Ok so why?
-
-Using many of these relationships between keys, you can have mappings figure out if possible how to get 
-to some set of output keys given a map, using the dependency graph of the rules to drive computation.
+- `:c is :a + :b` Establishes that :c is given by the calculation (+ :a :b).
+- `:foo_bar is :my.ns/foo-bar` Establishes that :foo_bar and :my.ns/foo-bar are interchangeable.
 
 ### What can `mappings` do?
 
-- `rename-keys` on steroids, bidirectional, transformations can be applied, transitive renames are possible. 
-- Automate repetitive key wiring and contains? style checks in functions taking maps.
-- Derive docstrings, assertions, and certain specs (WIP)
-- Ask for a full definition of a key, including how it is calculated.
+- Define relationships of equivalence or transformation
+  ```clojure
+   (mappings/add
+    (:c [:a :b] +)
+    (:foo_bar :my.ns/foo_bar))
+  ```
+
+- Use `selection` to compile functions that derive the desired output keys from the input using rules.
+  ```clojure
+    (def f (mappings/selection [:c]))
+    (f {:a 1, :b 2}) ;; => {:c 3} 
+  ```
+  
+- Use `select` for immediate selection, less efficient - but useful as a fancier `rename-keys`
+  ```clojure 
+   (mappings/select {:foo_bar "abc"} [:my.ns/foo-bar])
+   ;; =>
+   {:my.ns/foo-bar "abc"}  
+  ```
+  
+- Ask how keys can be calculated using `providing` 
+  ```clojure 
+   (mappings/providing :c)
+   ;; =>
+   ({:rid 0,
+     :ns user
+     :doc "Anonymous mapping"
+     :req #{:a :b}
+     :fn +}) 
+  ```
+  
+- Define reversable rules
+  ```clojure
+  (mappings/add 
+    (:d :a :fn inc :rfn dec))
+ 
+  (mappings/select {:a 1} [:d]) ;; => {:d 2}
+  (mappings/select {:d 2} [:a]) ;; => {:a 1}  
+  ```
+  
+- Document your rules
+  ```clojure
+   (mappings/add 
+    "c is a + b"
+    (:c [:a :b] +))
+  
+   ;; is the same as
+   (mappings/add 
+    (:c [:a :b] :fn + :doc "c is a + b"))  
+  ``` 
+  
+- Rules carry transitively, including via reverse relationships
+  ```clojure 
+  (mappings/add 
+    (:e [:c :d] +))
+ 
+  (mappings/select {:a 1, :b 2} [:e]) 
+  ;; will perform the below
+  ;; let c = a + b 
+  ;; let d = a + 1
+  ;; return c + d
+  ;; => 
+  {:e 5} 
+  ```
+- Calculations are performed only if a key has not been provided
+  
+   ```clojure 
+     (mappings/add 
+       (:e [:c :d] +))
+    
+     (mappings/select {:a 1, :b 2, :d 42} [:e]) 
+     ;; will perform the below
+     ;; let c = a + b
+     ;; because d is provided as 42 
+     ;; let d = 42 
+     ;; return c + d
+     ;; => 
+     {:e 47} 
+   ``` 
+
+- There are no maybe sheep
+  ```clojure
+  (mappings/select {:a 1} [:c]) 
+  ;; No :b provided =>
+  {}
+  ```
+
+## Rule shape
+
+A rule comprises an output-spec, and input-spec
+and optional transforms.
+
+Like so:
+
+`(output-spec input-spec :fn transform :rfn reverse-transform)`
+
+If the relationship can only be traverse input -> output, you can elide the :fn keyword
+
+`(output-spec input-spec transform)`
+
+If the relationship should just be equivalence, then just omit the transforms
+
+`(output-spec input-spec)`
+
+
+### Rule output spec
+
+- A `keyword` so the `:fn`: simply provides the value
+- A `vector` in which case the `:fn` should provide a map containing keys in the vector.
+
+### Input spec
+
+- A `keyword` in which the `:fn` will receive the value as the first (and only) argument.
+- A `vector` in which case the `:fn` will receive the key values as arguments in the order they are defined in the vector, you can specify an empty vector for 
+  keys that can be provided with no inputs.
+- A `set` in which case the `:fn` will receive a map with at least the keys in the set.
+- A map with `:req` and `:opt` keys. In which case the `:fn` will receive a map with at least the keys in `:req` and if possible the keys in `:opt`.
+
+
+### Selection output spec
+
+When using the `select` or `selection` functions you 
+provide an output spec which informs what you will receive as the result of 
+computing the selection.
+
+- A `keyword` will return you the value for that keyword
+- A `vector` will provide you a map containing at the keys in the vector that could be computed.
+- A `set` will provide you the input map + any intermediate keys that could be derived + the keys in the set that could
+  be computed.
+- A map containing `:req` and `:opt`, will return you a map with all of the keys in `:req` (or an exception is thrown)
+  in addition will return you keys in `:opt` if they can be derived.
+ 
+e.g 
 
 ```clojure
-
-;; This adds rules to the ::math ruleset.
-;; if you omit the keyword ::math the rules would be added to the default
-;; ruleset, but we do not want to do that - as we are not using globally qualified
-;; keys.
-
-(mappings/add ::math
-  "Rules can be documented, I am a docstring, to be associated with the rule below.
-   
-   The most basic rule is to define equivalence, here we say b == a, and therefore a == b."
-  (:b :a)
- 
-  "This rule uses functions to specify that :a+1 == (inc :a) and that :a = (dec :a+1)."
-  (:a+1 :a :fn inc :rfn dec)
-
-  "Any function can be used"
-  (:c :b :fn (fn [b] (+ b 2)) :rfn (partial - 2))
-
-  "One way relationships are possible, that perhaps require multiple keys"
-  (:d [:e :f] :fn +)
-  
-  "With one way relationships, you can omit the :fn if you want"
-  (:d [:e :f] +)
-
-  "We can use functions that take unordered dependencies these receive their
-  args as map"
-  (:d2 #{:e :f} (fn [m] (reduce + (vals m)))))
-
-;; here we select the desired output :a+1 using the ::math ruleset.
-(mappings/select {:a 1} ::math :a+1)
-;; =>
-2
-
-;; here we ask for multiple outputs using a vector as the output spec.
-;; we get a map.
-(mappings/select {:a 1} ::math [:a+1 :b])
-;; =>
-{:a+1 2, :b 1}
-
-;; Transitive properties are observed, here b == a therefore :a+1 can be computed.
-(mappings/select {:b 1} ::math :a+1)
-;; =>
-2
-
-;; If we want to add keys to the input, we can use a set rather than a vector
-;; in the output spec position
-(mappings/select {:e 1 :f 2} ::math #{:d})
-;; =>
-{:e 1, :f 2, :d 3}
-
+(mappings/select {:a 1, :b 2} :c) ;; => 3 
+(mappings/select {:a 1, :b 2} [:c :a]) ;; => {:c 3, :a 1}
+(mappings/select {} {:req [:c]}) ;; => throws AssertionError with a nice message
 ```
 
 ## Todo 
