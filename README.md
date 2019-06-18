@@ -8,7 +8,7 @@ with these rules, functions of maps returning maps can derived for you.
 Here are two rules in pseudo code 
 
 - `:c is :a + :b` Establishes that `:c` for a map `m` can be derived by the calculation `(+ (:a m) (:b m))`.
-- `:foo_bar is :my.ns/foo-bar` Establishes that :foo_bar and :my.ns/foo-bar are interchangeable.
+- `:foo_bar is :my.ns/foo-bar` Establishes that `:foo_bar` and `:my.ns/foo-bar` are interchangeable
 
 ### What can `mappings` do?
 
