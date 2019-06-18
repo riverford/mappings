@@ -3,7 +3,7 @@
 **Currently highly experimental with no tests!**
 
 `mappings` lets you specify relationships between keys in maps via `rules`,
-with these rules functions of maps returning maps can derived by specifying of desired outputs.
+with these rules, functions of maps returning maps can derived for you.
 
 Here are two rules in pseudo code 
 
