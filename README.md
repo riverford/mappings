@@ -1,6 +1,6 @@
 # mappings
 
-**Currently highly experimental with no tests!**
+**Currently highly experimental, we do not use it in production, its just an idea! (with no tests!)**
 
 `mappings` lets you specify relationships between keys in maps via `rules`,
 with these rules, functions of maps returning maps can derived for you.
