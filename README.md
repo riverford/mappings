@@ -89,7 +89,7 @@ Here are two rules in pseudo code
      ;; let d = 42 
      ;; return c + d
      ;; => 
-     {:e 47} 
+     {:e 45} 
    ``` 
 
 - There are no maybe sheep
